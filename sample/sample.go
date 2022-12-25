@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"github.com/Manx98/ST7789/st7789"
+	"github.com/manx98/st7789"
 	"github.com/stianeikeland/go-rpio/v4"
 	"image"
 	"image/gif"
