@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"github.com/manx98/st7789"
+	ST7789 "github.com/manx98/go-st7789"
 	"github.com/stianeikeland/go-rpio/v4"
 	"image"
 	"image/gif"
@@ -18,7 +18,7 @@ import (
 //	@param ctx
 //	@param canvas 画布
 //	@param filePath GIF路径
-func displayGIF(ctx context.Context, canvas *st7789.Canvas, filePath string) {
+func displayGIF(ctx context.Context, canvas *ST7789.Canvas, filePath string) {
 	f, err := os.OpenFile(filePath, os.O_RDONLY, os.ModePerm)
 	if err != nil {
 		log.Fatalf("failed to open: %v", err)
@@ -80,13 +80,13 @@ func main() {
 			log.Fatalf("failed to close gpio: %v", err)
 		}
 	}()
-	device := st7789.NewST7789(
+	device := ST7789.NewST7789(
 		rpio.Spi0,
 		rpio.Pin(25),
 		rpio.Pin(27),
 		rpio.Pin(24),
-		st7789.ST7789_TFTWIDTH,
-		st7789.ST7789_TFTHEIGHT,
+		ST7789.ST7789_TFTWIDTH,
+		ST7789.ST7789_TFTHEIGHT,
 	)
 	canvas := device.GetFullScreenCanvas()
 	timeout, cancel := context.WithTimeout(context.Background(), 10*time.Second)

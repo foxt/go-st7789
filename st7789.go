@@ -1,4 +1,4 @@
-package st7789
+package ST7789
 
 import (
 	"github.com/stianeikeland/go-rpio/v4"
