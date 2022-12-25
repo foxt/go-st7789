@@ -39,6 +39,7 @@ func displayGIF(ctx context.Context, canvas *ST7789.Canvas, filePath string) {
 	go func() {
 		defer func() {
 			waitGroup.Done()
+			cancelFunc()
 		}()
 		for {
 			select {
@@ -56,11 +57,12 @@ func displayGIF(ctx context.Context, canvas *ST7789.Canvas, filePath string) {
 	}()
 	for {
 		for i, img := range all.Image {
-			if ctx.Err() != nil {
+			select {
+			case <-displayCtx.Done():
 				return
+			case showWork <- img:
+				time.Sleep(time.Duration(all.Delay[i]) * time.Millisecond * 10)
 			}
-			showWork <- img
-			time.Sleep(time.Duration(all.Delay[i]) * time.Millisecond * 10)
 		}
 		if all.LoopCount < 0 {
 			break
