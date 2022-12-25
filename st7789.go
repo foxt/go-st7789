@@ -4,6 +4,7 @@ import (
 	"github.com/stianeikeland/go-rpio/v4"
 	"image"
 	"image/color"
+	"sync"
 	"time"
 )
 
@@ -125,6 +126,7 @@ type ST7789 struct {
 	led    rpio.Pin
 	width  int
 	height int
+	mux    sync.Mutex
 }
 
 func (s *ST7789) begin() {
@@ -132,17 +134,9 @@ func (s *ST7789) begin() {
 	s.init()
 }
 
-// Close
-//
-//	@Description: 关闭SPI
-//	@receiver s
-func (s *ST7789) Close() {
-	rpio.SpiEnd(s.spi)
-}
-
 // ExchangeData
 //
-//	@Description: 将数据写入SPI,isData为true表示写入的是数据,反之则是命令
+//	@Description: 将数据写入SPI,isData为true表示写入的是数据,反之则是命令(非线程安全,请使用 Tx 包裹执行)
 //	@receiver s
 //	@param data 需要发送的数据
 //	@param isData 是否是数据类型
@@ -157,16 +151,27 @@ func (s *ST7789) ExchangeData(isData bool, data []byte) {
 
 // Command
 //
-//	@Description: Write a byte or array of bytes to the display as command data.
+//	@Description: 写入显示命令(非线程安全,请使用 Tx 包裹执行)
 //	@receiver s
 //	@param data 数据
 func (s *ST7789) Command(data byte) {
 	s.ExchangeData(false, []byte{data})
 }
 
+// Tx
+//
+//	@Description: 加锁执行，确保命令执行连续且原子
+//	@receiver s
+//	@param call 执行函数
+func (s *ST7789) Tx(call func()) {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+	call()
+}
+
 // SendData
 //
-//	@Description: Write array of bytes to the display as display data.
+//	@Description: 写入显示数据(非线程安全,请使用 Tx 包裹执行)
 //	@receiver s
 //	@param data 数据
 func (s *ST7789) SendData(data ...byte) {
@@ -175,15 +180,17 @@ func (s *ST7789) SendData(data ...byte) {
 
 // Reset
 //
-//	@Description: Reset the display, if reset pin is connected.
+//	@Description: Reset the display, if reset pin is connected.(线程安全)
 //	@receiver s
 func (s *ST7789) Reset() {
-	s.rst.High()
-	time.Sleep(time.Millisecond * 100)
-	s.rst.Low()
-	time.Sleep(time.Millisecond * 100)
-	s.rst.High()
-	time.Sleep(time.Millisecond * 100)
+	s.Tx(func() {
+		s.rst.High()
+		time.Sleep(time.Millisecond * 100)
+		s.rst.Low()
+		time.Sleep(time.Millisecond * 100)
+		s.rst.High()
+		time.Sleep(time.Millisecond * 100)
+	})
 }
 
 // init
@@ -191,80 +198,82 @@ func (s *ST7789) Reset() {
 //	@Description: Initialize the display. Broken out as a separate function so it can be overridden by other displays in the future.
 //	@receiver s
 func (s *ST7789) init() {
-	s.Command(0x11)
-	time.Sleep(time.Millisecond * 150)
+	s.Tx(func() {
+		s.Command(0x11)
+		time.Sleep(time.Millisecond * 150)
 
-	s.Command(0x36)
-	s.SendData(0x00)
+		s.Command(0x36)
+		s.SendData(0x00)
 
-	s.Command(0x3A)
-	s.SendData(0x05)
+		s.Command(0x3A)
+		s.SendData(0x05)
 
-	s.Command(0xB2)
-	s.SendData(0x0C, 0x0C)
+		s.Command(0xB2)
+		s.SendData(0x0C, 0x0C)
 
-	s.Command(0xB7)
-	s.SendData(0x35)
+		s.Command(0xB7)
+		s.SendData(0x35)
 
-	s.Command(0xBB)
-	s.SendData(0x1A)
+		s.Command(0xBB)
+		s.SendData(0x1A)
 
-	s.Command(0xC0)
-	s.SendData(0x2C)
+		s.Command(0xC0)
+		s.SendData(0x2C)
 
-	s.Command(0xC2)
-	s.SendData(0x01)
+		s.Command(0xC2)
+		s.SendData(0x01)
 
-	s.Command(0xC3)
-	s.SendData(0x0B)
+		s.Command(0xC3)
+		s.SendData(0x0B)
 
-	s.Command(0xC4)
-	s.SendData(0x20)
+		s.Command(0xC4)
+		s.SendData(0x20)
 
-	s.Command(0xC6)
-	s.SendData(0x0F)
+		s.Command(0xC6)
+		s.SendData(0x0F)
 
-	s.Command(0xD0)
-	s.SendData(0xA4, 0xA1)
+		s.Command(0xD0)
+		s.SendData(0xA4, 0xA1)
 
-	s.Command(0x21)
+		s.Command(0x21)
 
-	s.Command(0xE0)
-	s.SendData(
-		0x00,
-		0x19,
-		0x1E,
-		0x0A,
-		0x09,
-		0x15,
-		0x3D,
-		0x44,
-		0x51,
-		0x12,
-		0x03,
-		0x00,
-		0x3F,
-		0x3F)
+		s.Command(0xE0)
+		s.SendData(
+			0x00,
+			0x19,
+			0x1E,
+			0x0A,
+			0x09,
+			0x15,
+			0x3D,
+			0x44,
+			0x51,
+			0x12,
+			0x03,
+			0x00,
+			0x3F,
+			0x3F)
 
-	s.Command(0xE1)
-	s.SendData(
-		0x00,
-		0x18,
-		0x1E,
-		0x0A,
-		0x09,
-		0x25,
-		0x3F,
-		0x43,
-		0x52,
-		0x33,
-		0x03,
-		0x00,
-		0x3F,
-		0x3F)
-	s.Command(0x29)
+		s.Command(0xE1)
+		s.SendData(
+			0x00,
+			0x18,
+			0x1E,
+			0x0A,
+			0x09,
+			0x25,
+			0x3F,
+			0x43,
+			0x52,
+			0x33,
+			0x03,
+			0x00,
+			0x3F,
+			0x3F)
+		s.Command(0x29)
 
-	time.Sleep(time.Millisecond * 100) // 100 ms
+		time.Sleep(time.Millisecond * 100) // 100 ms
+	})
 }
 
 // setWindow
@@ -297,14 +306,16 @@ func (s *ST7789) setWindow(x0, y0, x1, y1 int) {
 
 // Flush
 //
-//	@Description: 将画布上的图像绘制到屏幕上
+//	@Description: 将画布上的图像绘制到屏幕上(线程安全)
 //	@receiver s
 //	@param canvas 画布
 func (s *ST7789) Flush(canvas *Canvas) {
-	s.setWindow(canvas.x0, canvas.y0, canvas.x1, canvas.y1)
 	tmp := make([]byte, len(canvas.buffer))
 	copy(tmp, canvas.buffer)
-	s.ExchangeData(true, tmp)
+	s.Tx(func() {
+		s.setWindow(canvas.x0, canvas.y0, canvas.x1, canvas.y1)
+		s.ExchangeData(true, tmp)
+	})
 }
 
 // Size
