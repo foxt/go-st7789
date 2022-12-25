@@ -1,4 +1,4 @@
-module ST7789
+module github.com/Manx98/ST7789
 
 go 1.19
 
