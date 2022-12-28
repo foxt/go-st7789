@@ -110,7 +110,7 @@ func (m *MySpi) SetSpiMode3() {
 }
 
 func (m *MySpi) SpiTransmit(data []byte) {
-	rpio.SpiExchange(data)
+	rpio.SpiTransmit(data...)
 }
 
 func main() {
@@ -131,8 +131,7 @@ func main() {
 		&MyPin{rpio.Pin(25)},
 		&MyPin{rpio.Pin(27)},
 		&MyPin{rpio.Pin(24)},
-		ST7789.ST7789_TFTWIDTH,
-		ST7789.ST7789_TFTHEIGHT,
+		ST7789.Screen240X240,
 	)
 	canvas := device.GetFullScreenCanvas()
 	timeout, cancel := context.WithTimeout(context.Background(), 10*time.Second)
