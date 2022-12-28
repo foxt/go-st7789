@@ -16,7 +16,7 @@ type ScreenType uint8
 const (
 	SPI_CLOCK_HZ = 40000000 // 40 MHz
 
-	// Constants for interacting width display registers.
+	// Constants for interacting Width display registers.
 
 	ST7789_NOP       = 0x00
 	ST7789_SWRESET   = 0x01 // 软复位指令
@@ -131,11 +131,11 @@ const (
 	COLOR_MODE_18BIT = ColorMode(0x06)
 	COLOR_MODE_16M   = ColorMode(0x07)
 
-	// Screen320X240 width 320,height 240
+	// Screen320X240 Width 320,Height 240
 	Screen320X240 = ScreenType(0)
-	// Screen240X240 width 240,height 240
+	// Screen240X240 Width 240,Height 240
 	Screen240X240 = ScreenType(1)
-	// Screen135X240 width 135,height 240
+	// Screen135X240 Width 135,Height 240
 	Screen135X240 = ScreenType(2)
 )
 
@@ -315,14 +315,14 @@ func (s *ST7789) init() {
 
 // SetWindow
 //
-//	@Description: Set the pixel address window for proceeding drawing commands. x0 and
-//	   x1 should define the minimum and maximum x pixel bounds.  y0 and y1
+//	@Description: Set the pixel address window for proceeding drawing commands. X0 and
+//	   X1 should define the minimum and maximum x pixel bounds.  Y0 and Y1
 //	   should define the minimum and maximum y pixel bound.
 //	@receiver s
-//	@param x0 区域开始X轴位置(包含)
-//	@param y0 区域开始Y轴位置(包含)
-//	@param x1 区域结束X轴位置(包含)
-//	@param y1 区域结束Y轴位置(包含)
+//	@param X0 区域开始X轴位置(包含)
+//	@param Y0 区域开始Y轴位置(包含)
+//	@param X1 区域结束X轴位置(包含)
+//	@param Y1 区域结束Y轴位置(包含)
 func (s *ST7789) SetWindow(x0, y0, x1, y1 int) {
 	s.Command(ST7789_CASET) // Column addr set
 	x0 += s.xStart
@@ -349,11 +349,11 @@ func (s *ST7789) SetWindow(x0, y0, x1, y1 int) {
 //
 //	@Description: 将画布上的图像绘制到屏幕上
 //	@receiver s
-//	@param x0 区域开始X轴位置(包含)
-//	@param y0 区域开始Y轴位置(包含)
-//	@param x1 区域结束X轴位置(包含)
-//	@param y1 区域结束Y轴位置(包含)
-//	@param buffer RGB565图像
+//	@param X0 区域开始X轴位置(包含)
+//	@param Y0 区域开始Y轴位置(包含)
+//	@param X1 区域结束X轴位置(包含)
+//	@param Y1 区域结束Y轴位置(包含)
+//	@param Buffer RGB565图像
 func (s *ST7789) FlushBitBuffer(x0, y0, x1, y1 int, buffer []byte) {
 	s.SetWindow(x0, y0, x1, y1)
 	s.ExchangeData(true, buffer)
@@ -379,13 +379,13 @@ func (s *ST7789) Size() *image.Point {
 func (s *ST7789) GetFullScreenCanvas() *Canvas {
 	return &Canvas{
 		device: s,
-		x0:     0,
-		y0:     0,
-		x1:     s.width - 1,
-		y1:     s.height - 1,
-		width:  s.width,
-		height: s.height,
-		buffer: make([]byte, s.width*s.height*2),
+		X0:     0,
+		Y0:     0,
+		X1:     s.width - 1,
+		Y1:     s.height - 1,
+		Width:  s.width,
+		Height: s.height,
+		Buffer: make([]byte, s.width*s.height*2),
 	}
 }
 
@@ -393,23 +393,23 @@ func (s *ST7789) GetFullScreenCanvas() *Canvas {
 //
 //	@Description: 获取画布
 //	@receiver s
-//	@param x0 区域X轴起始(包含)
-//	@param y0 区域Y轴起始(包含)
-//	@param x1 区域X轴截止(包含)
-//	@param y1 区域X轴截止(包含)
+//	@param X0 区域X轴起始(包含)
+//	@param Y0 区域Y轴起始(包含)
+//	@param X1 区域X轴截止(包含)
+//	@param Y1 区域X轴截止(包含)
 //	@return *Canvas
 func (s *ST7789) GetCanvas(x0, y0, x1, y1 int) *Canvas {
 	width := x1 - x0 + 1
 	height := y1 - y0 + 1
 	return &Canvas{
 		device: s,
-		x0:     x0,
-		y0:     y0,
-		x1:     x1,
-		y1:     y1,
-		width:  width,
-		height: height,
-		buffer: make([]byte, width*height*2),
+		X0:     x0,
+		Y0:     y0,
+		X1:     x1,
+		Y1:     y1,
+		Width:  width,
+		Height: height,
+		Buffer: make([]byte, width*height*2),
 	}
 }
 
@@ -574,13 +574,13 @@ type BaseCanvas interface {
 // @Description: 画布
 type Canvas struct {
 	device *ST7789
-	x0     int    // X轴画布起始偏移
-	y0     int    // Y轴画布起始偏移
-	x1     int    // X轴画布结束偏移
-	y1     int    // Y轴画布结束偏移
-	width  int    // 画布宽度
-	height int    // 画布高度
-	buffer []byte // 缓冲区
+	X0     int    // X轴画布起始偏移
+	Y0     int    // Y轴画布起始偏移
+	X1     int    // X轴画布结束偏移
+	Y1     int    // Y轴画布结束偏移
+	Width  int    // 画布宽度
+	Height int    // 画布高度
+	Buffer []byte // 缓冲区
 }
 
 // SetRGB565
@@ -592,8 +592,8 @@ type Canvas struct {
 //	@param c RGB565色值
 func (d *Canvas) SetRGB565(x, y int, c uint16) {
 	index := d.getBufferBeginIndex(x, y)
-	d.buffer[index] = byte(c >> 8)
-	d.buffer[index+1] = byte(c)
+	d.Buffer[index] = byte(c >> 8)
+	d.Buffer[index+1] = byte(c)
 }
 
 // GetRGB565
@@ -605,7 +605,7 @@ func (d *Canvas) SetRGB565(x, y int, c uint16) {
 //	@return uint16 RGB565色值
 func (d *Canvas) GetRGB565(x, y int) uint16 {
 	index := d.getBufferBeginIndex(x, y)
-	return (uint16(d.buffer[index]) << 8) + uint16(d.buffer[index+1])
+	return (uint16(d.Buffer[index]) << 8) + uint16(d.Buffer[index+1])
 }
 
 // GetColor
@@ -641,7 +641,7 @@ func (d *Canvas) SetColor(x, y int, c color.Color) {
 //	@param y Y轴坐标
 //	@return int 缓冲区开始下标
 func (d *Canvas) getBufferBeginIndex(x, y int) int {
-	return (y*d.width + x) * 2
+	return (y*d.Width + x) * 2
 }
 
 // Flush
@@ -649,7 +649,7 @@ func (d *Canvas) getBufferBeginIndex(x, y int) int {
 //	@Description: 将缓冲区内容刷新到屏幕上
 //	@receiver d
 func (d *Canvas) Flush() {
-	d.device.FlushBitBuffer(d.x0, d.y0, d.x1, d.y1, d.buffer)
+	d.FlushDirectly(d.Buffer)
 }
 
 // DrawImage
@@ -659,11 +659,20 @@ func (d *Canvas) Flush() {
 //	@param img 图像
 func (d *Canvas) DrawImage(img image.Image) {
 	bounds := img.Bounds()
-	for y := bounds.Min.Y; y < bounds.Max.Y && y < d.height; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X && x < d.width; x++ {
+	for y := bounds.Min.Y; y < bounds.Max.Y && y < d.Height; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X && x < d.Width; x++ {
 			d.SetColor(x, y, img.At(x, y))
 		}
 	}
+}
+
+// FlushDirectly
+//
+//	@Description: 直接将buffer内容绘制到画布所对应的显示区域，该方法不会覆盖画布缓冲区
+//	@receiver d
+//	@param buffer
+func (d *Canvas) FlushDirectly(buffer []byte) {
+	d.device.FlushBitBuffer(d.X0, d.Y0, d.X1, d.Y1, buffer)
 }
 
 // Clear
@@ -671,8 +680,8 @@ func (d *Canvas) DrawImage(img image.Image) {
 //	@Description: 清空画布缓冲区数据
 //	@receiver d
 func (d *Canvas) Clear() {
-	for x := 0; x < d.width; x++ {
-		for y := 0; y < d.height; y++ {
+	for x := 0; x < d.Width; x++ {
+		for y := 0; y < d.Height; y++ {
 			d.SetRGB565(x, y, 0)
 		}
 	}
