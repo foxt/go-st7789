@@ -1,21 +1,25 @@
 package ST7789
 
 import (
+	"fmt"
 	"image"
 	"image/color"
-	"sync"
 	"time"
 )
+
+// ColorMode 色彩模式
+type ColorMode uint8
+
+// ScreenType  显示屏类型
+type ScreenType uint8
 
 const (
 	SPI_CLOCK_HZ = 40000000 // 40 MHz
 
 	// Constants for interacting width display registers.
-	ST7789_TFTWIDTH  = 240
-	ST7789_TFTHEIGHT = 240
 
 	ST7789_NOP       = 0x00
-	ST7789_SWRESET   = 0x01
+	ST7789_SWRESET   = 0x01 // 软复位指令
 	ST7789_RDDID     = 0x04
 	ST7789_RDDST     = 0x09
 	ST7789_RDDPM     = 0x0A
@@ -107,6 +111,9 @@ const (
 	ST7789_NVMSET    = 0xFC
 	ST7789_PROMACT   = 0xFE
 
+	ST7789_POWSAVE    = 0xbc
+	ST7789_DLPOFFSAVE = 0xbd
+
 	// Colours for convenience
 	ST7789_BLACK   = 0x0000 // 0b 00000 000000 00000
 	ST7789_BLUE    = 0x001F // 0b 00000 000000 11111
@@ -116,20 +123,64 @@ const (
 	ST7789_MAGENTA = 0xF81F // 0b 11111 000000 11111
 	ST7789_YELLOW  = 0xFFE0 // 0b 11111 111111 00000
 	ST7789_WHITE   = 0xFFFF // 0b 11111 111111 11111
+
+	COLOR_MODE_65K   = ColorMode(0x50)
+	COLOR_MODE_262K  = ColorMode(0x60)
+	COLOR_MODE_12BIT = ColorMode(0x03)
+	COLOR_MODE_16BIT = ColorMode(0x05)
+	COLOR_MODE_18BIT = ColorMode(0x06)
+	COLOR_MODE_16M   = ColorMode(0x07)
+
+	// Screen320X240 width 320,height 240
+	Screen320X240 = ScreenType(0)
+	// Screen240X240 width 240,height 240
+	Screen240X240 = ScreenType(1)
+	// Screen135X240 width 135,height 240
+	Screen135X240 = ScreenType(2)
 )
 
-type ST7789 struct {
-	spi    SPI
-	dc     PIN
-	rst    PIN
-	led    PIN
-	width  int
-	height int
-	mux    sync.Mutex
+// MADCTL ROTATIONS[rotation % 4]
+var rotations = []byte{0x00, 0x60, 0xc0, 0xa0}
+
+var width320 = [][]int{
+	{240, 320, 0, 0},
+	{320, 240, 0, 0},
+	{240, 320, 0, 0},
+	{320, 240, 0, 0},
 }
 
+var width240 = [][]int{
+	{240, 240, 0, 0},
+	{240, 240, 0, 0},
+	{240, 240, 0, 80},
+	{240, 240, 80, 0},
+}
+
+var width135 = [][]int{
+	{135, 240, 52, 40},
+	{240, 135, 40, 53},
+	{135, 240, 53, 40},
+	{240, 135, 40, 52},
+}
+
+type ST7789 struct {
+	spi         SPI
+	dc          PIN
+	rst         PIN
+	led         PIN
+	width       int
+	height      int
+	xStart      int
+	yStart      int
+	rotationMap [][]int
+}
+
+// begin
+//
+//	@Description: 初始化
+//	@receiver s
 func (s *ST7789) begin() {
-	s.Reset()
+	s.HardReset()
 	s.init()
 }
 
@@ -157,125 +208,112 @@ func (s *ST7789) Command(data byte) {
 	s.ExchangeData(false, []byte{data})
 }
 
-// Tx
-//
-//	@Description: 加锁执行，确保命令执行连续且原子
-//	@receiver s
-//	@param call 执行函数
-func (s *ST7789) Tx(call func()) {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-	call()
-}
-
 // SendData
 //
-//	@Description: 写入显示数据(非线程安全,请使用 Tx 包裹执行)
+//	@Description: 写入显示数据
 //	@receiver s
 //	@param data 数据
 func (s *ST7789) SendData(data ...byte) {
 	s.ExchangeData(true, data)
 }
 
-// Reset
+// HardReset
 //
-//	@Description: Reset the display, if reset pin is connected.(线程安全)
+//	@Description: 硬重启设备
 //	@receiver s
-func (s *ST7789) Reset() {
-	s.Tx(func() {
-		s.rst.High()
-		time.Sleep(time.Millisecond * 100)
-		s.rst.Low()
-		time.Sleep(time.Millisecond * 100)
-		s.rst.High()
-		time.Sleep(time.Millisecond * 100)
-	})
+func (s *ST7789) HardReset() {
+	s.rst.High()
+	time.Sleep(time.Millisecond * 100)
+	s.rst.Low()
+	time.Sleep(time.Millisecond * 100)
+	s.rst.High()
+	time.Sleep(time.Millisecond * 100)
 }
 
-// init
+// SoftReset
 //
-//	@Description: Initialize the display. Broken out as a separate function so it can be overridden by other displays in the future.
+//	@Description: 软复位
 //	@receiver s
+func (s *ST7789) SoftReset() {
+	s.Command(ST7789_SWRESET)
+}
+
 func (s *ST7789) init() {
-	s.Tx(func() {
-		s.Command(0x11)
-		time.Sleep(time.Millisecond * 150)
+	s.SleepMode(false)
+	time.Sleep(time.Millisecond * 150)
 
-		s.Command(0x36)
-		s.SendData(0x00)
+	s.Rotation(0)
 
-		s.Command(0x3A)
-		s.SendData(0x05)
+	s.ColorMode(COLOR_MODE_65K | COLOR_MODE_16BIT)
 
-		s.Command(0xB2)
-		s.SendData(0x0C, 0x0C)
+	s.Command(ST7789_PORCTRL)
+	s.SendData(0x0C, 0x0C)
 
-		s.Command(0xB7)
-		s.SendData(0x35)
+	s.Command(ST7789_GCTRL)
+	s.SendData(0x35)
 
-		s.Command(0xBB)
-		s.SendData(0x1A)
+	s.Command(ST7789_VCOMS)
+	s.SendData(0x1A)
 
-		s.Command(0xC0)
-		s.SendData(0x2C)
+	s.Command(ST7789_LCMCTRL)
+	s.SendData(0x2C)
 
-		s.Command(0xC2)
-		s.SendData(0x01)
+	s.Command(ST7789_VDVVRHEN)
+	s.SendData(0x01)
 
-		s.Command(0xC3)
-		s.SendData(0x0B)
+	s.Command(ST7789_VRHS)
+	s.SendData(0x0B)
 
-		s.Command(0xC4)
-		s.SendData(0x20)
+	s.Command(ST7789_VDVSET)
+	s.SendData(0x20)
 
-		s.Command(0xC6)
-		s.SendData(0x0F)
+	s.Command(ST7789_FRCTR2)
+	s.SendData(0x0F)
 
-		s.Command(0xD0)
-		s.SendData(0xA4, 0xA1)
+	s.Command(ST7789_PWCTRL1)
+	s.SendData(0xA4, 0xA1)
 
-		s.Command(0x21)
+	s.InversionMode(true)
 
-		s.Command(0xE0)
-		s.SendData(
-			0x00,
-			0x19,
-			0x1E,
-			0x0A,
-			0x09,
-			0x15,
-			0x3D,
-			0x44,
-			0x51,
-			0x12,
-			0x03,
-			0x00,
-			0x3F,
-			0x3F)
+	s.Command(ST7789_PVGAMCTRL)
+	s.SendData(
+		0x00,
+		0x19,
+		0x1E,
+		0x0A,
+		0x09,
+		0x15,
+		0x3D,
+		0x44,
+		0x51,
+		0x12,
+		0x03,
+		0x00,
+		0x3F,
+		0x3F)
 
-		s.Command(0xE1)
-		s.SendData(
-			0x00,
-			0x18,
-			0x1E,
-			0x0A,
-			0x09,
-			0x25,
-			0x3F,
-			0x43,
-			0x52,
-			0x33,
-			0x03,
-			0x00,
-			0x3F,
-			0x3F)
-		s.Command(0x29)
+	s.Command(ST7789_NVGAMCTRL)
+	s.SendData(
+		0x00,
+		0x18,
+		0x1E,
+		0x0A,
+		0x09,
+		0x25,
+		0x3F,
+		0x43,
+		0x52,
+		0x33,
+		0x03,
+		0x00,
+		0x3F,
+		0x3F)
+	s.Command(ST7789_DISPON)
 
-		time.Sleep(time.Millisecond * 100) // 100 ms
-	})
+	time.Sleep(time.Millisecond * 100) // 100 ms
 }
 
-// setWindow
+// SetWindow
 //
 //	@Description: Set the pixel address window for proceeding drawing commands. x0 and
 //	   x1 should define the minimum and maximum x pixel bounds.  y0 and y1
@@ -285,8 +323,10 @@ func (s *ST7789) init() {
 //	@param y0 区域开始Y轴位置(包含)
 //	@param x1 区域结束X轴位置(包含)
 //	@param y1 区域结束Y轴位置(包含)
-func (s *ST7789) setWindow(x0, y0, x1, y1 int) {
+func (s *ST7789) SetWindow(x0, y0, x1, y1 int) {
 	s.Command(ST7789_CASET) // Column addr set
+	x0 += s.xStart
+	x1 += s.xStart
 	s.SendData(byte(
 		x0>>8),
 		byte(x0), // XSTART
@@ -294,6 +334,8 @@ func (s *ST7789) setWindow(x0, y0, x1, y1 int) {
 		byte(x1), // XEND
 	)
 	s.Command(ST7789_RASET) // Row addr set
+	y0 += s.yStart
+	y1 += s.yStart
 	s.SendData(
 		byte(y0>>8),
 		byte(y0), // YSTART
@@ -303,18 +345,18 @@ func (s *ST7789) setWindow(x0, y0, x1, y1 int) {
 	s.Command(ST7789_RAMWR) // write to RAM
 }
 
-// Flush
+// FlushBitBuffer
 //
-//	@Description: 将画布上的图像绘制到屏幕上(线程安全)
+//	@Description: 将画布上的图像绘制到屏幕上
 //	@receiver s
-//	@param canvas 画布
-func (s *ST7789) Flush(canvas *Canvas) {
-	tmp := make([]byte, len(canvas.buffer))
-	copy(tmp, canvas.buffer)
-	s.Tx(func() {
-		s.setWindow(canvas.x0, canvas.y0, canvas.x1, canvas.y1)
-		s.ExchangeData(true, tmp)
-	})
+//	@param x0 区域开始X轴位置(包含)
+//	@param y0 区域开始Y轴位置(包含)
+//	@param x1 区域结束X轴位置(包含)
+//	@param y1 区域结束Y轴位置(包含)
+//	@param buffer RGB565图像
+func (s *ST7789) FlushBitBuffer(x0, y0, x1, y1 int, buffer []byte) {
+	s.SetWindow(x0, y0, x1, y1)
+	s.ExchangeData(true, buffer)
 }
 
 // Size
@@ -368,6 +410,96 @@ func (s *ST7789) GetCanvas(x0, y0, x1, y1 int) *Canvas {
 		width:  width,
 		height: height,
 		buffer: make([]byte, width*height*2),
+	}
+}
+
+// SleepMode
+//
+//	@Description: 是否启用显示休眠模式
+//	@receiver s
+//	@param enable 是否开启
+func (s *ST7789) SleepMode(enable bool) {
+	if enable {
+		s.Command(ST7789_SLPIN)
+	} else {
+		s.Command(ST7789_SLPOUT)
+	}
+}
+
+// InversionMode
+//
+//	@Description: 是否启用显示反转模式
+//	@receiver s
+//	@param enable 是否启用
+func (s *ST7789) InversionMode(enable bool) {
+	if enable {
+		s.Command(ST7789_INVON)
+	} else {
+		s.Command(ST7789_INVOFF)
+	}
+}
+
+// ColorMode
+//
+//	@Description: 设置颜色模式
+//	@receiver s
+//	@param mode
+//		COLOR_MODE_65K, COLOR_MODE_262K, COLOR_MODE_12BIT,
+//		COLOR_MODE_16BIT, COLOR_MODE_18BIT, COLOR_MODE_16M
+func (s *ST7789) ColorMode(mode ColorMode) {
+	s.Command(ST7789_COLMOD)
+	s.SendData(uint8(mode) & 0x77)
+}
+
+// Rotation
+//
+//	@Description: 设置显示旋转
+//	@receiver s
+//	@param rotation
+//	  	0-Portrait
+//	  	1-Landscape
+//	  	2-Inverted Portrait
+//	  	3-Inverted Landscape
+func (s *ST7789) Rotation(rotation uint8) {
+	rotation = rotation % 4
+	s.width = s.rotationMap[rotation][0]
+	s.height = s.rotationMap[rotation][1]
+	s.xStart = s.rotationMap[rotation][2]
+	s.yStart = s.rotationMap[rotation][3]
+	s.Command(ST7789_MADCTL)
+	s.SendData(rotations[rotation%4])
+}
+
+// PowerSave
+//
+//	@Description:
+//	@receiver s
+//	@param mode
+//		0 - off
+//		1 - idle
+//		2 - normal
+//		4 - display off
+func (s *ST7789) PowerSave(mode uint8) {
+	if mode == 0 {
+		s.Command(ST7789_POWSAVE)
+		s.SendData(0xec | 3)
+		s.Command(ST7789_DLPOFFSAVE)
+		s.SendData(0xff)
+		return
+	}
+	var is byte
+	if mode&1 == 0 {
+		is = 1
+	}
+	var ns byte
+	if mode&2 == 0 {
+		ns = 2
+	}
+	s.Command(ST7789_POWSAVE)
+	s.SendData(0xec | ns | is)
+	if mode&4 > 0 {
+		s.Command(ST7789_DLPOFFSAVE)
+		s.SendData(0xfe)
 	}
 }
 
@@ -517,7 +649,7 @@ func (d *Canvas) getBufferBeginIndex(x, y int) int {
 //	@Description: 将缓冲区内容刷新到屏幕上
 //	@receiver d
 func (d *Canvas) Flush() {
-	d.device.Flush(d)
+	d.device.FlushBitBuffer(d.x0, d.y0, d.x1, d.y1, d.buffer)
 }
 
 // DrawImage
@@ -591,18 +723,31 @@ type PIN interface {
 //	@param dc 引脚DC
 //	@param rst 引脚RES
 //	@param led 引脚BLK
-//	@param width 显示宽度
-//	@param height 显示高度
+//	@param screen 显示器类型
 //	@return *ST7789
 //	@return error 创建失败
-func NewST7789(spi SPI, dc, rst, led PIN, width, height int) *ST7789 {
+func NewST7789(spi SPI, dc, rst, led PIN, screen ScreenType) *ST7789 {
 	s := &ST7789{
-		spi:    spi,
-		dc:     dc,
-		rst:    rst,
-		led:    led,
-		width:  width,
-		height: height,
+		spi: spi,
+		dc:  dc,
+		rst: rst,
+		led: led,
+	}
+	switch screen {
+	case Screen135X240:
+		s.width = 135
+		s.height = 240
+		s.rotationMap = width135
+	case Screen240X240:
+		s.width = 240
+		s.height = 240
+		s.rotationMap = width240
+	case Screen320X240:
+		s.width = 320
+		s.height = 240
+		s.rotationMap = width320
+	default:
+		panic(fmt.Sprintf("Unsupported display. 320x240, 240x240 and 135x240 are supported."))
 	}
 	// Set DC as output.
 	s.dc.SetOutput()
@@ -611,9 +756,8 @@ func NewST7789(spi SPI, dc, rst, led PIN, width, height int) *ST7789 {
 	// Turn on the backlight LED
 	s.led.SetOutput()
 	s.led.High()
-	// Set SPI to mode 0, MSB first.
-	spi.SetSpiMode3()
 	spi.SpiSpeed(SPI_CLOCK_HZ)
+	spi.SetSpiMode3()
 	s.begin()
 	return s
 }
