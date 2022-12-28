@@ -105,8 +105,8 @@ func (m *MySpi) SpiSpeed(speed uint32) {
 	rpio.SpiSpeed(int(speed))
 }
 
-func (m *MySpi) SetSpiMode2() {
-	rpio.SpiMode(1, 0)
+func (m *MySpi) SetSpiMode3() {
+	rpio.SpiMode(1, 1)
 }
 
 func (m *MySpi) SpiTransmit(data []byte) {
@@ -137,7 +137,7 @@ func main() {
 	canvas := device.GetFullScreenCanvas()
 	timeout, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	displayGIF(timeout, canvas, "GIF图片显示路径")
+	displayGIF(timeout, canvas, "./sample/TeaTime.gif")
 	canvas.Clear()
 	canvas.Flush()
 }
