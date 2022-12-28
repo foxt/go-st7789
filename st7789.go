@@ -554,10 +554,10 @@ type SPI interface {
 	//
 	SpiSpeed(speed uint32)
 	//
-	// SetSpiMode2
-	//  @Description:设置为Mode 2 CPOL=1, CPHA=0模式
+	// SetSpiMode3
+	//  @Description:设置为Mode3 CPOL=1, CPHA=1模式
 	//
-	SetSpiMode2()
+	SetSpiMode3()
 	//
 	// SpiTransmit
 	//  @Description: 发送数据
@@ -612,7 +612,7 @@ func NewST7789(spi SPI, dc, rst, led PIN, width, height int) *ST7789 {
 	s.led.SetOutput()
 	s.led.High()
 	// Set SPI to mode 0, MSB first.
-	spi.SetSpiMode2()
+	spi.SetSpiMode3()
 	spi.SpiSpeed(SPI_CLOCK_HZ)
 	s.begin()
 	return s
