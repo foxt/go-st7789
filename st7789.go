@@ -1,7 +1,6 @@
 package ST7789
 
 import (
-	"github.com/stianeikeland/go-rpio/v4"
 	"image"
 	"image/color"
 	"sync"
@@ -120,10 +119,10 @@ const (
 )
 
 type ST7789 struct {
-	spi    rpio.SpiDev
-	dc     rpio.Pin
-	rst    rpio.Pin
-	led    rpio.Pin
+	spi    SPI
+	dc     PIN
+	rst    PIN
+	led    PIN
 	width  int
 	height int
 	mux    sync.Mutex
@@ -146,7 +145,7 @@ func (s *ST7789) ExchangeData(isData bool, data []byte) {
 	} else {
 		s.dc.Low()
 	}
-	rpio.SpiExchange(data)
+	s.spi.SpiTransmit(data)
 }
 
 // Command
@@ -547,6 +546,44 @@ func (d *Canvas) Clear() {
 	}
 }
 
+type SPI interface {
+	//
+	// SpiSpeed
+	//  @Description: 设置SPI速率
+	//  @param speed
+	//
+	SpiSpeed(speed uint32)
+	//
+	// SetSpiMode2
+	//  @Description:设置为Mode 2 CPOL=1, CPHA=0模式
+	//
+	SetSpiMode2()
+	//
+	// SpiTransmit
+	//  @Description: 发送数据
+	//  @param data 需要发送的数据
+	//
+	SpiTransmit(data []byte)
+}
+
+type PIN interface {
+	//
+	// High
+	//  @Description:输出为高电频
+	//
+	High()
+	//
+	// Low
+	//  @Description:设置为低电频
+	//
+	Low()
+	//
+	// SetOutput
+	//  @Description:设置为输出模式
+	//
+	SetOutput()
+}
+
 // NewST7789
 //
 //	@Description: ST7789显示驱动
@@ -558,7 +595,7 @@ func (d *Canvas) Clear() {
 //	@param height 显示高度
 //	@return *ST7789
 //	@return error 创建失败
-func NewST7789(spi rpio.SpiDev, dc, rst, led rpio.Pin, width, height int) *ST7789 {
+func NewST7789(spi SPI, dc, rst, led PIN, width, height int) *ST7789 {
 	s := &ST7789{
 		spi:    spi,
 		dc:     dc,
@@ -568,15 +605,15 @@ func NewST7789(spi rpio.SpiDev, dc, rst, led rpio.Pin, width, height int) *ST778
 		height: height,
 	}
 	// Set DC as output.
-	s.dc.Mode(rpio.Output)
+	s.dc.SetOutput()
 	// Setup reset as output
-	s.rst.Mode(rpio.Output)
+	s.rst.SetOutput()
 	// Turn on the backlight LED
-	s.led.Mode(rpio.Output)
+	s.led.SetOutput()
 	s.led.High()
 	// Set SPI to mode 0, MSB first.
-	rpio.SpiSpeed(SPI_CLOCK_HZ)
-	rpio.SpiMode(1, 0)
+	spi.SetSpiMode2()
+	spi.SpiSpeed(SPI_CLOCK_HZ)
 	s.begin()
 	return s
 }
