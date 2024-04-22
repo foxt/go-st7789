@@ -19,7 +19,7 @@ const (
 	// Constants for interacting Width display registers.
 
 	ST7789_NOP       = 0x00
-	ST7789_SWRESET   = 0x01 // 软复位指令
+	ST7789_SWRESET   = 0x01 // Software reset
 	ST7789_RDDID     = 0x04
 	ST7789_RDDST     = 0x09
 	ST7789_RDDPM     = 0x0A
@@ -186,9 +186,9 @@ func (s *ST7789) begin() {
 
 // ExchangeData
 //
-//	@Description: 将数据写入SPI,isData为true表示写入的是数据,反之则是命令(非线程安全,请使用 Tx 包裹执行)
+//	@Description: Write data to SPI. If isData is true, it means that the data is written, otherwise it is a command (not thread-safe, please use the Tx package to execute)
 //	@receiver s
-//	@param data 需要发送的数据
+//	@param data Data to be sent
 //	@param isData 是否是数据类型
 func (s *ST7789) ExchangeData(isData bool, data []byte) {
 	if isData {
@@ -201,7 +201,7 @@ func (s *ST7789) ExchangeData(isData bool, data []byte) {
 
 // Command
 //
-//	@Description: 写入显示命令(非线程安全,请使用 Tx 包裹执行)
+//	@Description: Write display command (not thread-safe, please use Tx package to execute)
 //	@receiver s
 //	@param data 数据
 func (s *ST7789) Command(data byte) {
@@ -210,7 +210,7 @@ func (s *ST7789) Command(data byte) {
 
 // SendData
 //
-//	@Description: 写入显示数据
+//	@Description: Write display data
 //	@receiver s
 //	@param data 数据
 func (s *ST7789) SendData(data ...byte) {
@@ -319,10 +319,10 @@ func (s *ST7789) init() {
 //	   X1 should define the minimum and maximum x pixel bounds.  Y0 and Y1
 //	   should define the minimum and maximum y pixel bound.
 //	@receiver s
-//	@param X0 区域开始X轴位置(包含)
-//	@param Y0 区域开始Y轴位置(包含)
-//	@param X1 区域结束X轴位置(包含)
-//	@param Y1 区域结束Y轴位置(包含)
+//	@param X0 Region start X-axis position (inclusive)
+//	@param Y0 Region start Y-axis position (inclusive)
+//	@param X1 Region end X-axis position (inclusive)
+//	@param Y1 Region end Y-axis position (inclusive)
 func (s *ST7789) SetWindow(x0, y0, x1, y1 int) {
 	s.Command(ST7789_CASET) // Column addr set
 	x0 += s.xStart
@@ -347,13 +347,13 @@ func (s *ST7789) SetWindow(x0, y0, x1, y1 int) {
 
 // FlushBitBuffer
 //
-//	@Description: 将画布上的图像绘制到屏幕上
+//	@Description: Draw an image from the canvas to the screen
 //	@receiver s
-//	@param X0 区域开始X轴位置(包含)
-//	@param Y0 区域开始Y轴位置(包含)
-//	@param X1 区域结束X轴位置(包含)
-//	@param Y1 区域结束Y轴位置(包含)
-//	@param Buffer RGB565图像
+//	@param X0 Start position of the area on the X-axis (inclusive)
+//	@param Y0 Start position of the area on the Y-axis (inclusive)
+//	@param X1 End position of the area on the X-axis (inclusive)
+//	@param Y1 End position of the area on the Y-axis (inclusive)
+//	@param Buffer RGB565 image data
 func (s *ST7789) FlushBitBuffer(x0, y0, x1, y1 int, buffer []byte) {
 	s.SetWindow(x0, y0, x1, y1)
 	s.ExchangeData(true, buffer)
@@ -361,7 +361,7 @@ func (s *ST7789) FlushBitBuffer(x0, y0, x1, y1 int, buffer []byte) {
 
 // Size
 //
-//	@Description: 获取显示器尺寸
+//	@Description: Get the size of the display
 //	@receiver s
 //	@return *image.Point 尺寸
 func (s *ST7789) Size() *image.Point {
@@ -393,10 +393,10 @@ func (s *ST7789) GetFullScreenCanvas() *Canvas {
 //
 //	@Description: 获取画布
 //	@receiver s
-//	@param X0 区域X轴起始(包含)
-//	@param Y0 区域Y轴起始(包含)
-//	@param X1 区域X轴截止(包含)
-//	@param Y1 区域X轴截止(包含)
+//	@param X0 Region start X-axis position (inclusive)
+//	@param Y0 Region start Y-axis position (inclusive)
+//	@param X1 Region end X-axis position (inclusive)
+//	@param Y1 Region end Y-axis position (inclusive)
 //	@return *Canvas
 func (s *ST7789) GetCanvas(x0, y0, x1, y1 int) *Canvas {
 	width := x1 - x0 + 1
@@ -505,11 +505,11 @@ func (s *ST7789) PowerSave(mode uint8) {
 
 // computeAlpha
 //
-//	@Description: 混合背景色
-//	@param color 当前色值
-//	@param bg 背景色值
-//	@param alpha 当前色Alpha值
-//	@param bgAlpha 背景色Alpha值
+//	@Description: Mix two colors together
+//	@param color Foreground color value
+//	@param bg Background color value
+//	@param alpha Foreground alpha value
+//	@param bgAlpha Background alpha value
 //	@return uint32
 func computeAlpha(color uint32, bg uint16, alpha, bgAlpha uint32) uint32 {
 	return (color*alpha + bgAlpha*uint32(bg)) / 255
@@ -517,9 +517,9 @@ func computeAlpha(color uint32, bg uint16, alpha, bgAlpha uint32) uint32 {
 
 // ColorToRgb565
 //
-//	@Description: 转换 color.Color 为RGB565
+//	@Description: Convert color.Color to RGB565
 //	@param c 当前颜色
-//	@param backgroundColor 背景颜色(RGB565)
+//	@param backgroundColor background color (RGB565)
 //	@return uint16 RGB565色值
 func ColorToRgb565(c color.Color, backgroundColor uint16) uint16 {
 	r, g, b, a := c.RGBA()
@@ -554,7 +554,7 @@ func Rgb565ToRgb(c uint16) (r, g, b uint16) {
 type BaseCanvas interface {
 	//
 	// SetRGB565
-	//  @Description: 设置指定坐标RGB565色值
+	//  @Description: Set the RGB565 color value of the specified coordinates
 	//  @param x X轴
 	//  @param y Y轴
 	//  @param c RBG565色值
@@ -562,7 +562,7 @@ type BaseCanvas interface {
 	SetRGB565(x, y int, c uint16)
 	//
 	// GetRGB565
-	//  @Description: 获取指定坐标RGB565色值
+	//  @Description: Get the RGB565 color value of the specified coordinates
 	//  @param x X轴
 	//  @param y Y轴
 	//  @result RGB565色值
@@ -574,18 +574,18 @@ type BaseCanvas interface {
 // @Description: 画布
 type Canvas struct {
 	device *ST7789
-	X0     int    // X轴画布起始偏移
-	Y0     int    // Y轴画布起始偏移
-	X1     int    // X轴画布结束偏移
-	Y1     int    // Y轴画布结束偏移
-	Width  int    // 画布宽度
-	Height int    // 画布高度
-	Buffer []byte // 缓冲区
+	X0 int //X-axis canvas starting offset
+	Y0 int // Y-axis canvas starting offset
+	X1 int //X-axis canvas end offset
+	Y1 int // Y-axis canvas end offset
+	Width int // Canvas width
+	Height int // Canvas height
+	Buffer []byte // buffer
 }
 
 // SetRGB565
 //
-//	@Description: 设置缓存区指定坐标的RGB565色值
+//	@Description: Set the RGB565 color value of the specified coordinates in the buffer area
 //	@receiver d
 //	@param x X轴坐标
 //	@param y Y轴坐标
@@ -635,7 +635,7 @@ func (d *Canvas) SetColor(x, y int, c color.Color) {
 
 // getBufferBeginIndex
 //
-//	@Description: 获取缓冲区
+//	@Description: Returns the index of a pixel in the buffer
 //	@receiver d
 //	@param x X轴坐标
 //	@param y Y轴坐标
@@ -668,7 +668,7 @@ func (d *Canvas) DrawImage(img image.Image) {
 
 // FlushDirectly
 //
-//	@Description: 直接将buffer内容绘制到画布所对应的显示区域，该方法不会覆盖画布缓冲区
+//	@Description: Draw the buffer content directly to the display area corresponding to the canvas. This method will not overwrite the canvas buffer.
 //	@receiver d
 //	@param buffer
 func (d *Canvas) FlushDirectly(buffer []byte) {
@@ -696,7 +696,7 @@ type SPI interface {
 	SpiSpeed(speed uint32)
 	//
 	// SetSpiMode3
-	//  @Description:设置为Mode3 CPOL=1, CPHA=1模式
+	//  @Description: Set to Mode3 CPOL=1, CPHA=1 mode
 	//
 	SetSpiMode3()
 	//
@@ -727,14 +727,14 @@ type PIN interface {
 
 // NewST7789
 //
-//	@Description: ST7789显示驱动
-//	@param spi SPI通信端口
-//	@param dc 引脚DC
-//	@param rst 引脚RES
-//	@param led 引脚BLK
-//	@param screen 显示器类型
-//	@return *ST7789
-//	@return error 创建失败
+// @Description: ST7789 display driver
+// @param spi SPI communication port
+// @param dc pin DC
+// @param rst pin RES
+// @param led pin BLK
+// @param screen display type
+// @return *ST7789
+// @return error Creation failed
 func NewST7789(spi SPI, dc, rst, led PIN, screen ScreenType) *ST7789 {
 	s := &ST7789{
 		spi: spi,

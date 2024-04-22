@@ -1,13 +1,19 @@
 # ST7789
 
-使用Golang实现的操作ST7789,适用于无CS引脚的240x204 LCD显示屏。 目前仅在Raspberry zero 2w上测试通过。
+> [!NOTE]
+> This readme, and some code comments was machine translated from the original Chinese - https://github.com/manx98/go-st7789
+> Some inaccuracies may be present.
 
-本库根据Python版 https://github.com/solinnovay/Python_ST7789 移植而来，并在此基础上实现了RGBA转RGB565,支持透明图层。
-# 安装
+ST7789 library implemented using Golang, suitable for 240x204 LCD display without CS pin. Currently only tested on Raspberry zero 2w.
+
+
+This library is transplanted from the Python version https://github.com/solinnovay/Python_ST7789, and based on this, it implements RGBA conversion to RGB565 and supports transparent layers.
+
+# Installation
 ```shell
 go get github.com/manx98/go-st7789
 ```
-# 使用示例
+# Usage example
 ```go
 package main
 
@@ -25,10 +31,10 @@ import (
 
 // displayGIF
 //
-//	@Description: 显示GIF图片
+//	@Description: Display GIF image
 //	@param ctx
-//	@param canvas 画布
-//	@param filePath GIF路径
+//	@param canvas 
+//	@param filePath path to the GIF file
 func displayGIF(ctx context.Context, canvas *ST7789.Canvas, filePath string) {
 	f, err := os.OpenFile(filePath, os.O_RDONLY, os.ModePerm)
 	if err != nil {
@@ -70,7 +76,7 @@ func displayGIF(ctx context.Context, canvas *ST7789.Canvas, filePath string) {
 	defer func() {
 		cancelFunc()
 		waitGroup.Wait()
-		log.Printf("平均速度：%dms/fps\n", totalTime/total)
+		log.Printf("Average speed：%dms/frame\n", totalTime/total)
 	}()
 	for {
 		for i, img := range all.Image {
@@ -141,6 +147,6 @@ func main() {
 	canvas.Flush()
 }
 ```
-# 感谢
-1. Python原始实现 https://github.com/solinnovay/Python_ST7789
-2. GPIO库 https://github.com/stianeikeland/go-rpio/
+# Acknowledgements
+1. Python original implementation https://github.com/solinnovay/Python_ST7789
+2. GPIO library https://github.com/stianeikeland/go-rpio/
